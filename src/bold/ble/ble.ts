@@ -6,8 +6,8 @@ import { BoldBleDeviceInfo, BoldBlePacketType, BoldBlePacketTypes } from './type
 
 const SESAM_MANUFACTURER_ID = 0x065b;
 const SESAM_SERVICE_UUID = 'fd30';
-const NORDIC_UART_TRANSMIT_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
-const NORDIC_UART_RECEIVE_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+const NORDIC_UART_RX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+const NORDIC_UART_TX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
 const DEFAULT_DISCOVER_TIMEOUT = 30 * 1000;
 const DEFAULT_ACTIVATE_TIMEOUT = 30 * 1000;
@@ -77,9 +77,9 @@ class BoldBleConnection {
     let writeCharacteristic: noble.Characteristic | undefined;
     let readCharacteristic: noble.Characteristic | undefined;
     for (const characteristic of characteristics) {
-      if (characteristic.uuid === NORDIC_UART_TRANSMIT_CHARACTERISTIC_UUID.replace(/-/g, '').toLowerCase()) {
+      if (characteristic.uuid === NORDIC_UART_RX_CHARACTERISTIC_UUID.replace(/-/g, '').toLowerCase()) {
         writeCharacteristic = characteristic;
-      } else if (characteristic.uuid === NORDIC_UART_RECEIVE_CHARACTERISTIC_UUID.replace(/-/g, '').toLowerCase()) {
+      } else if (characteristic.uuid === NORDIC_UART_TX_CHARACTERISTIC_UUID.replace(/-/g, '').toLowerCase()) {
         readCharacteristic = characteristic;
       }
     }
