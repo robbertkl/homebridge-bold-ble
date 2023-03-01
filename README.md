@@ -4,8 +4,6 @@
 
 <span align="center">
 
-# Homebridge Bold BLE
-
 [![Downloads](https://img.shields.io/npm/dt/homebridge-bold-ble)](https://www.npmjs.com/package/homebridge-bold-ble)
 [![Version](https://img.shields.io/npm/v/homebridge-bold-ble)](https://www.npmjs.com/package/homebridge-bold-ble)
 <br/>
@@ -14,7 +12,7 @@
 
 </span>
 
-## Introduction
+# Homebridge Bold BLE
 
 Homebridge Bold BLE is a Homebridge plugin to provide HomeKit support for [Bold Smart Cylinder](https://boldsmartlock.com) locks. This plugin is similar to the great [homebridge-bold](https://github.com/StefanNienhuis/homebridge-bold) plugin, but instead controls your smart locks through a direct Bluetooth (BLE) connection.
 
