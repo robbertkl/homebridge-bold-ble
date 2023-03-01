@@ -128,8 +128,6 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
     targetState.onGet(this.getTargetLockState.bind(this, device.id));
     targetState.onSet(this.setTargetLockState.bind(this, device.id));
 
-    this.Characteristic.LockCurrentState.SECURED;
-
     let informationService = accessory.getService(this.homebridge.hap.Service.AccessoryInformation);
     if (!informationService) {
       informationService = accessory.addService(this.homebridge.hap.Service.AccessoryInformation);
