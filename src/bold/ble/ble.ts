@@ -92,6 +92,9 @@ class BoldBleConnection {
   }
 
   public async disconnect() {
+    if (this.peripheral.state === 'disconnected') {
+      return;
+    }
     await this.peripheral.disconnectAsync();
   }
 
@@ -339,7 +342,7 @@ export class BoldBle {
         }
         return await func(connection);
       } finally {
-        connection.disconnect();
+        await connection.disconnect();
       }
     });
   }
