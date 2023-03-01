@@ -1,0 +1,59 @@
+{
+  "name": "homebridge-bold-ble",
+  "version": "1.0.0",
+  "displayName": "Homebridge Bold BLE",
+  "description": "Homebridge plugin for Bold Smart Lock",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robbertkl/homebridge-bold-ble.git"
+  },
+  "bugs": {
+    "url": "https://github.com/robbertkl/homebridge-bold-ble/issues"
+  },
+  "engines": {
+    "node": ">=14.18.1",
+    "homebridge": ">=1.3.5"
+  },
+  "type": "module",
+  "exports": "./dist/index.js",
+  "scripts": {
+    "clean": "rimraf dist homebridge-ui/public",
+    "build": "npm run build:plugin && npm run build:ui",
+    "build:plugin": "rimraf dist && tsc",
+    "build:ui": "rimraf homebridge-ui/public && vite build homebridge-ui",
+    "dev": "tsc && homebridge -D",
+    "dev:ui": "vite build --watch homebridge-ui",
+    "lint": "eslint src/**.ts --max-warnings=0",
+    "prepublishOnly": "npm run lint && npm run build"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "bold",
+    "lock",
+    "bold-smart-lock",
+    "homekit"
+  ],
+  "dependencies": {
+    "@abandonware/noble": "^1.9.2-20",
+    "@homebridge/plugin-ui-utils": "^0.0.19",
+    "node-fetch": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^16.10.9",
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "@vitejs/plugin-react": "^3.1.0",
+    "eslint": "^8.0.1",
+    "homebridge": "^1.3.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-use-websocket": "^4.3.1",
+    "rimraf": "^3.0.2",
+    "ts-node": "^10.3.0",
+    "typescript": "^4.4.4",
+    "vite": "^4.1.4"
+  }
+}
