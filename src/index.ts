@@ -1,5 +1,6 @@
-import { promises as fs } from 'fs';
-import noble from '@abandonware/noble';
+import * as fs from 'node:fs/promises';
+
+import type { Peripheral } from '@abandonware/noble';
 import {
   API,
   APIEvent,
@@ -14,8 +15,15 @@ import {
   PlatformConfig,
 } from 'homebridge';
 
-import { BoldApi, BoldApiAuthentication, BoldApiCommand, BoldApiDevice, BoldApiHandshake } from './bold/api/index.js';
-import { BoldBle, BoldBleDeviceInfo } from './bold/ble/index.js';
+import {
+  BoldApi,
+  BoldApiAuthentication,
+  BoldApiCommand,
+  BoldApiDevice,
+  BoldApiHandshake,
+  BoldBle,
+  BoldBleDeviceInfo,
+} from './bold';
 
 const PLATFORM_NAME = 'BoldBLE';
 const PLUGIN_NAME = 'homebridge-bold-ble';
@@ -35,7 +43,7 @@ type Lock = {
   state: LockState;
   handshake?: BoldApiHandshake;
   activateCommand?: BoldApiCommand;
-  peripheral?: noble.Peripheral;
+  peripheral?: Peripheral;
 };
 
 type BoldBlePlatformConfig = PlatformConfig & BoldApiAuthentication;
@@ -270,9 +278,9 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
     return devices;
   }
 
-  private async discoverCompatiblePeripherals(deviceIds: number[]): Promise<Map<number, noble.Peripheral>> {
+  private async discoverCompatiblePeripherals(deviceIds: number[]): Promise<Map<number, Peripheral>> {
     const potentialPeripherals = await this.ble.discoverBoldPeripherals(deviceIds);
-    const peripherals = new Map<number, noble.Peripheral>();
+    const peripherals = new Map<number, Peripheral>();
     for (const [deviceId, peripheral] of potentialPeripherals) {
       if (!peripheral) {
         this.log.warn(`Unable to discover peripheral for device ${deviceId}`);

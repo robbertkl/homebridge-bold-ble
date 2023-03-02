@@ -1,4 +1,5 @@
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
+
 import fetch from 'node-fetch';
 
 import type {
@@ -13,7 +14,7 @@ import type {
   BoldApiOAuthResponse,
   BoldApiVerifyCodeResponse,
   BoldDefaultAuthResponse,
-} from './types.js';
+} from './types';
 
 const BASE_URL = 'https://api.boldsmartlock.com/';
 const DEFAULT_AUTH_REFRESH_URL = 'https://bold.nienhuisdevelopment.com/oauth/refresh';

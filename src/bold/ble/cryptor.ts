@@ -1,5 +1,5 @@
-import { createCipheriv, randomBytes } from 'crypto';
-import { promisify } from 'util';
+import { createCipheriv, randomBytes } from 'node:crypto';
+import { promisify } from 'node:util';
 
 const randomBytesAsync = promisify(randomBytes);
 

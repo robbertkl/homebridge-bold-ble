@@ -1,8 +1,8 @@
-import noble from '@abandonware/noble';
+import noble, { Characteristic, Peripheral } from '@abandonware/noble';
 
-import { BoldApiCommand, BoldApiHandshake } from '../api/index.js';
-import { BoldCryptor } from './cryptor.js';
-import { BoldBleDeviceInfo, BoldBlePacketType, BoldBlePacketTypes } from './types.js';
+import { BoldApiCommand, BoldApiHandshake } from '../api';
+import { BoldCryptor } from './cryptor';
+import { BoldBleDeviceInfo, BoldBlePacketType, BoldBlePacketTypes } from './types';
 
 const SESAM_MANUFACTURER_ID = 0x065b;
 const SESAM_SERVICE_UUID = 'fd30';
@@ -27,9 +27,9 @@ class BoldBleConnection {
   private cryptor?: BoldCryptor;
 
   private constructor(
-    private readonly peripheral: noble.Peripheral,
-    private readonly writeCharacteristic: noble.Characteristic,
-    private readonly readCharacteristic: noble.Characteristic,
+    private readonly peripheral: Peripheral,
+    private readonly writeCharacteristic: Characteristic,
+    private readonly readCharacteristic: Characteristic,
     private readonly signal: AbortSignal
   ) {
     if (peripheral.state !== 'connected') {
@@ -39,7 +39,7 @@ class BoldBleConnection {
     this.readCharacteristic.on('read', this.onBytesReceived.bind(this));
   }
 
-  public static async create(peripheral: noble.Peripheral, signal: AbortSignal): Promise<BoldBleConnection> {
+  public static async create(peripheral: Peripheral, signal: AbortSignal): Promise<BoldBleConnection> {
     if (peripheral.state !== 'disconnected') {
       throw new Error('Cannot connect peripheral while it is not yet disconnected');
     }
@@ -73,8 +73,8 @@ class BoldBleConnection {
 
     const { characteristics } = await peripheral.discoverAllServicesAndCharacteristicsAsync();
 
-    let writeCharacteristic: noble.Characteristic | undefined;
-    let readCharacteristic: noble.Characteristic | undefined;
+    let writeCharacteristic: Characteristic | undefined;
+    let readCharacteristic: Characteristic | undefined;
     for (const characteristic of characteristics) {
       if (characteristic.uuid === NORDIC_UART_RX_CHARACTERISTIC_UUID.replace(/-/g, '').toLowerCase()) {
         writeCharacteristic = characteristic;
@@ -262,10 +262,8 @@ export class BoldBle {
   public async discoverBoldPeripherals(
     deviceIds?: number[],
     timeout = DEFAULT_DISCOVER_TIMEOUT
-  ): Promise<Map<number, noble.Peripheral | null>> {
-    const peripherals = new Map<number, noble.Peripheral | null>(
-      deviceIds && deviceIds.map(deviceId => [deviceId, null])
-    );
+  ): Promise<Map<number, Peripheral | null>> {
+    const peripherals = new Map<number, Peripheral | null>(deviceIds && deviceIds.map(deviceId => [deviceId, null]));
     if (deviceIds && deviceIds.length === 0) {
       return peripherals;
     }
@@ -279,7 +277,7 @@ export class BoldBle {
           resolve(peripherals);
         };
 
-        const onDiscover = (peripheral: noble.Peripheral) => {
+        const onDiscover = (peripheral: Peripheral) => {
           try {
             const deviceInfo = this.getDeviceInfo(peripheral);
             peripherals.set(deviceInfo.deviceId, peripheral);
@@ -302,7 +300,7 @@ export class BoldBle {
     });
   }
 
-  public getDeviceInfo(peripheral: noble.Peripheral): BoldBleDeviceInfo {
+  public getDeviceInfo(peripheral: Peripheral): BoldBleDeviceInfo {
     const data = peripheral.advertisement.manufacturerData;
 
     if (data.length !== 14) {
@@ -328,7 +326,7 @@ export class BoldBle {
   }
 
   private async withEncryptedConnection<T>(
-    peripheral: noble.Peripheral,
+    peripheral: Peripheral,
     handshake: BoldApiHandshake,
     timeout: number,
     func: (connection: BoldBleConnection) => T
@@ -349,7 +347,7 @@ export class BoldBle {
   }
 
   public async activateLock(
-    peripheral: noble.Peripheral,
+    peripheral: Peripheral,
     handshake: BoldApiHandshake,
     activateCommand: BoldApiCommand,
     timeout: number = DEFAULT_ACTIVATE_TIMEOUT
