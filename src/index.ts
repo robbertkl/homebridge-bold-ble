@@ -15,7 +15,7 @@ import {
   PlatformConfig,
 } from 'homebridge';
 
-import {
+import type {
   BoldApi,
   BoldApiAuthentication,
   BoldApiCommand,
@@ -53,57 +53,42 @@ export default (homebridge: API) => {
 };
 
 class BoldBlePlatform implements DynamicPlatformPlugin {
-  private readonly api: BoldApi;
-  private readonly ble = new BoldBle();
+  private api?: BoldApi;
+  private ble?: BoldBle;
 
   private readonly Characteristic = this.homebridge.hap.Characteristic;
 
-  private updateTimer?: NodeJS.Timer;
   private lastDevicesCheck?: Date;
 
   private locks: Map<number, Lock> = new Map();
 
   constructor(private readonly log: Logger, config: PlatformConfig, private readonly homebridge: API) {
-    this.api = new BoldApi(config as BoldBlePlatformConfig as BoldApiAuthentication);
+    let updateTimer: NodeJS.Timer | undefined;
 
-    this.api.on('refresh', async (newAuth, oldAuth) => {
-      this.log.debug('Refreshed API tokens');
-
+    homebridge.on(APIEvent.DID_FINISH_LAUNCHING, async () => {
       try {
-        const buffer = await fs.readFile(this.homebridge.user.configPath());
-        const json = buffer.toString('utf8');
-        const fullConfig = JSON.parse(json) as HomebridgeConfig;
-
-        let platformIndex = fullConfig.platforms.findIndex(
-          platform => platform.platform === PLATFORM_NAME && platform.accessToken === oldAuth?.accessToken
-        );
-        if (platformIndex < 0) {
-          this.log.warn(`Could not find platform with current access token; using first ${PLATFORM_NAME} entry`);
-          platformIndex = fullConfig.platforms.findIndex(platform => platform.platform === PLATFORM_NAME);
-        }
-        if (platformIndex < 0) {
-          this.log.error(`Could not find ${PLATFORM_NAME} entry in config; not writing refreshed tokens`);
-          return;
+        try {
+          await import('@abandonware/noble');
+        } catch (error: unknown) {
+          throw new Error('Could not load Bluetooth library; possibly unsupported on your platform');
         }
 
-        const currentConfig = fullConfig.platforms[platformIndex] as BoldBlePlatformConfig;
-        delete currentConfig.refreshURL;
-        fullConfig.platforms[platformIndex] = { ...currentConfig, ...newAuth };
+        const { BoldApi, BoldBle } = await import('./bold');
+        this.api = new BoldApi(config as BoldBlePlatformConfig as BoldApiAuthentication);
+        this.ble = new BoldBle();
 
-        await fs.writeFile(this.homebridge.user.configPath(), JSON.stringify(fullConfig, null, 4));
-      } catch (error) {
-        this.log.error('Error writing refreshed tokens to config');
+        this.api.on('refresh', this.onApiTokenRefresh.bind(this));
+
+        await this.update(true);
+        updateTimer = setInterval(this.update.bind(this), UPDATE_INTERVAL);
+      } catch (error: unknown) {
+        this.log.error((error as Error).message);
       }
     });
 
-    homebridge.on(APIEvent.DID_FINISH_LAUNCHING, async () => {
-      await this.update(true);
-      this.updateTimer = setInterval(this.update.bind(this), UPDATE_INTERVAL);
-    });
-
     homebridge.on(APIEvent.SHUTDOWN, () => {
-      if (this.updateTimer) {
-        clearInterval(this.updateTimer);
+      if (updateTimer) {
+        clearInterval(updateTimer);
       }
     });
   }
@@ -229,6 +214,11 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
     lock.state = 'activating';
     targetState?.updateValue(this.Characteristic.LockTargetState.UNSECURED);
 
+    if (!this.ble) {
+      this.log.error(`Cannot activate lock for device ${deviceId} because Bluetooth library was not loaded`);
+      throw new this.homebridge.hap.HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+    }
+
     let activationTime: number;
     try {
       activationTime = await this.ble.activateLock(lock.peripheral, lock.handshake, lock.activateCommand);
@@ -260,7 +250,7 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
   }
 
   private async fetchCompatibleDevices(): Promise<Map<number, BoldApiDevice>> {
-    const potentialDevices = await this.api.getEffectiveDevicePermissions();
+    const potentialDevices = (await this.api?.getEffectiveDevicePermissions()) ?? [];
     const devices = new Map<number, BoldApiDevice>();
     for (const device of potentialDevices) {
       if (!device.id) {
@@ -279,8 +269,11 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
   }
 
   private async discoverCompatiblePeripherals(deviceIds: number[]): Promise<Map<number, Peripheral>> {
-    const potentialPeripherals = await this.ble.discoverBoldPeripherals(deviceIds);
     const peripherals = new Map<number, Peripheral>();
+    if (!this.ble) {
+      return peripherals;
+    }
+    const potentialPeripherals = await this.ble.discoverBoldPeripherals(deviceIds);
     for (const [deviceId, peripheral] of potentialPeripherals) {
       if (!peripheral) {
         this.log.warn(`Unable to discover peripheral for device ${deviceId}`);
@@ -306,6 +299,36 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
       }
     }
     return peripherals;
+  }
+
+  async onApiTokenRefresh(newAuth: BoldApiAuthentication, oldAuth?: BoldApiAuthentication) {
+    this.log.debug('Refreshed API tokens');
+
+    try {
+      const buffer = await fs.readFile(this.homebridge.user.configPath());
+      const json = buffer.toString('utf8');
+      const fullConfig = JSON.parse(json) as HomebridgeConfig;
+
+      let platformIndex = fullConfig.platforms.findIndex(
+        platform => platform.platform === PLATFORM_NAME && platform.accessToken === oldAuth?.accessToken
+      );
+      if (platformIndex < 0) {
+        this.log.warn(`Could not find platform with current access token; using first ${PLATFORM_NAME} entry`);
+        platformIndex = fullConfig.platforms.findIndex(platform => platform.platform === PLATFORM_NAME);
+      }
+      if (platformIndex < 0) {
+        this.log.error(`Could not find ${PLATFORM_NAME} entry in config; not writing refreshed tokens`);
+        return;
+      }
+
+      const currentConfig = fullConfig.platforms[platformIndex] as BoldBlePlatformConfig;
+      delete currentConfig.refreshURL;
+      fullConfig.platforms[platformIndex] = { ...currentConfig, ...newAuth };
+
+      await fs.writeFile(this.homebridge.user.configPath(), JSON.stringify(fullConfig, null, 4));
+    } catch (error: unknown) {
+      this.log.error('Error writing refreshed tokens to config');
+    }
   }
 
   private async update(force = false) {
@@ -413,7 +436,7 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
         new Date(lock.handshake.expiration).getTime() - new Date().getTime() < HANDSHAKE_UPDATE_MARGIN
       ) {
         try {
-          const handshakes = await this.api.getHandshakes(deviceId);
+          const handshakes = (await this.api?.getHandshakes(deviceId)) ?? [];
           const handshake = handshakes.shift();
           if (handshake) {
             this.log.debug(`Updated handshake for device ${deviceId}`);
@@ -436,7 +459,7 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
         new Date(lock.activateCommand.expiration).getTime() - new Date().getTime() < COMMAND_UPDATE_MARGIN
       ) {
         try {
-          const commands = await this.api.getActivateCommands(deviceId);
+          const commands = (await this.api?.getActivateCommands(deviceId)) ?? [];
           const command = commands.shift();
           if (command) {
             this.log.debug(`Updated activate-command for device ${deviceId}`);

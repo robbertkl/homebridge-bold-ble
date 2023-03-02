@@ -35,9 +35,11 @@
     "prepublishOnly": "npm run lint && npm run build"
   },
   "dependencies": {
-    "@abandonware/noble": "^1.9.2-20",
     "@homebridge/plugin-ui-utils": "^0.0.19",
     "node-fetch": "^2.6.9"
+  },
+  "optionalDependencies": {
+    "@abandonware/noble": "^1.9.2-20"
   },
   "devDependencies": {
     "@types/node": "^16.10.9",
