@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2018", // ~node10
-    "module": "ES2020",
+    "module": "commonjs",
     "moduleResolution": "node",
     "lib": ["dom", "es2015", "es2016", "es2017", "es2018"],
     "declaration": true,
