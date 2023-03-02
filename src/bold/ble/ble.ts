@@ -37,7 +37,6 @@ class BoldBleConnection {
     }
 
     this.readCharacteristic.on('read', this.onBytesReceived.bind(this));
-    this.readCharacteristic.notify(true);
   }
 
   public static async create(peripheral: noble.Peripheral, signal: AbortSignal): Promise<BoldBleConnection> {
@@ -87,6 +86,8 @@ class BoldBleConnection {
     if (!writeCharacteristic || !readCharacteristic) {
       throw new Error('Could not find Nordic UART characteristics on peripheral');
     }
+
+    await readCharacteristic.notifyAsync(true);
 
     return new this(peripheral, writeCharacteristic, readCharacteristic, signal);
   }
