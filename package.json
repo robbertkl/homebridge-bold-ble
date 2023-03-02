@@ -4,6 +4,14 @@
   "displayName": "Homebridge Bold BLE",
   "description": "Homebridge plugin for Bold Smart Lock",
   "license": "MIT",
+  "keywords": [
+    "homebridge-plugin",
+    "bold",
+    "lock",
+    "bold-smart-lock",
+    "homekit"
+  ],
+  "homepage": "https://github.com/robbertkl/homebridge-bold-ble#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/robbertkl/homebridge-bold-ble.git"
@@ -27,13 +35,6 @@
     "lint": "eslint src/**.ts --max-warnings=0",
     "prepublishOnly": "npm run lint && npm run build"
   },
-  "keywords": [
-    "homebridge-plugin",
-    "bold",
-    "lock",
-    "bold-smart-lock",
-    "homekit"
-  ],
   "dependencies": {
     "@abandonware/noble": "^1.9.2-20",
     "@homebridge/plugin-ui-utils": "^0.0.19",
@@ -55,5 +56,23 @@
     "ts-node": "^10.3.0",
     "typescript": "^4.4.4",
     "vite": "^4.1.4"
-  }
+  },
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/robbertkl"
+    },
+    {
+      "type": "paypal",
+      "url": "https://paypal.me/robbertkl"
+    },
+    {
+      "type": "ko-fi",
+      "url": "https://ko-fi.com/robbertkl"
+    },
+    {
+      "type": "bunq",
+      "url": "https://bunq.me/robbertkl"
+    }
+  ]
 }
