@@ -7,6 +7,12 @@
     "type": "object",
     "required": ["accessToken", "refreshToken", "legacyAuthentication"],
     "properties": {
+      "name": {
+        "title": "Plugin name",
+        "type": "string",
+        "default": "BoldBLE",
+        "description": "Plugin name as shown in Homebridge Log"
+      },
       "accessToken": {
         "title": "Access token",
         "type": "string",
