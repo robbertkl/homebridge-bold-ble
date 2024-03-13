@@ -1,4 +1,5 @@
 import noble, { Characteristic, Peripheral } from '@abandonware/noble';
+import { Logger } from 'homebridge';
 
 import { BoldApiCommand, BoldApiHandshake } from '../api';
 import { BoldCryptor } from './cryptor';
@@ -12,7 +13,8 @@ const NORDIC_UART_TX_CHARACTERISTIC_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e
 const DEFAULT_DISCOVER_TIMEOUT = 30 * 1000;
 const DEFAULT_ACTIVATE_TIMEOUT = 30 * 1000;
 
-const runWithTimeout = async <T>(timeout: number, func: (signal: AbortSignal) => Promise<T>) => {
+const runWithTimeout = async <T>(timeout: number, func: (signal: AbortSignal) => Promise<T>, log: Logger) => {
+  log.info(`runWithTimeout(${timeout})`);
   const abortController = new AbortController();
   const timer = setTimeout(() => {
     abortController.abort();
@@ -30,7 +32,8 @@ class BoldBleConnection {
     private readonly peripheral: Peripheral,
     private readonly writeCharacteristic: Characteristic,
     private readonly readCharacteristic: Characteristic,
-    private readonly signal: AbortSignal
+    private readonly signal: AbortSignal,
+    private readonly log: Logger
   ) {
     if (peripheral.state !== 'connected') {
       throw new Error('Peripheral is not connected');
@@ -39,7 +42,9 @@ class BoldBleConnection {
     this.readCharacteristic.on('read', this.onBytesReceived.bind(this));
   }
 
-  public static async create(peripheral: Peripheral, signal: AbortSignal): Promise<BoldBleConnection> {
+  public static async create(peripheral: Peripheral, signal: AbortSignal, log: Logger): Promise<BoldBleConnection> {
+    log.info(`BoldBleConnection.create(), peripheral.state=${peripheral.state}`);
+
     if (peripheral.state !== 'disconnected') {
       throw new Error('Cannot connect peripheral while it is not yet disconnected');
     }
@@ -56,6 +61,7 @@ class BoldBleConnection {
       };
 
       const onAbort = () => {
+        log.info('BoldBleConnection.create -> onAbort');
         // Skip cancelling because cancelConnect() seems broken in noble! :-(
         // peripheral.cancelConnect();
         cleanup();
@@ -89,10 +95,11 @@ class BoldBleConnection {
 
     await readCharacteristic.notifyAsync(true);
 
-    return new this(peripheral, writeCharacteristic, readCharacteristic, signal);
+    return new this(peripheral, writeCharacteristic, readCharacteristic, signal, log);
   }
 
   public async disconnect() {
+    this.log.info(`BoldBleConnection.disconnect(), peripheral.state=${this.peripheral.state}`);
     if (this.peripheral.state === 'disconnected') {
       return;
     }
@@ -103,6 +110,8 @@ class BoldBleConnection {
     if (!isNotification) {
       return;
     }
+
+    this.log.info(`BoldBleConnection.onBytesReceived(<${data.byteLength}>), peripheral.state=${this.peripheral.state}`);
 
     this.receiveBuffer = this.receiveBuffer.length > 0 ? Buffer.concat([this.receiveBuffer, data]) : data;
     while (this.receiveBuffer.length > 0) {
@@ -131,6 +140,10 @@ class BoldBleConnection {
   private onPacketReceived: ((type: BoldBlePacketType, payload: Buffer) => void) | undefined;
 
   public async call(type: BoldBlePacketType, payload: Buffer, replyType: BoldBlePacketType): Promise<Buffer> {
+    this.log.info(
+      `BoldBleConnection.onPacketReceived(${type}, <${payload.byteLength}>, ${replyType}), peripheral.state=${this.peripheral.state}`
+    );
+
     let processReply = (reply: Buffer): Buffer | Promise<Buffer> => reply;
 
     if (type < BoldBlePacketTypes.StartHandshake || type > BoldBlePacketTypes.HandshakeFinishedResponse) {
@@ -154,6 +167,10 @@ class BoldBleConnection {
       };
 
       this.onPacketReceived = (type, payload) => {
+        this.log.info(
+          `BoldBleConnection.onPacketReceived(${type}, <${payload.byteLength}>), peripheral.state=${this.peripheral.state}`
+        );
+
         if (type === BoldBlePacketTypes.Event) {
           // Ignore event packets that can come in the middle of a conversation.
           return;
@@ -179,6 +196,7 @@ class BoldBleConnection {
       };
 
       const onAbort = () => {
+        this.log.info('BoldBleConnection.call -> onAbort');
         cleanup();
         reject(new Error(`Timed out while waiting for reply packet of type ${replyType}`));
       };
@@ -194,6 +212,8 @@ class BoldBleConnection {
   }
 
   public async performHandshake(handshake: BoldApiHandshake) {
+    this.log.info(`BoldBleConnection.performHandshake(), peripheral.state=${this.peripheral.state}`);
+
     const handshakePayload = Buffer.from(handshake.payload, 'base64');
     const handshakeKey = Buffer.from(handshake.handshakeKey, 'base64');
 
@@ -227,7 +247,11 @@ class BoldBleConnection {
 }
 
 export class BoldBle {
+  constructor(private readonly log: Logger) {}
+
   private async waitForBluetooth(signal: AbortSignal) {
+    this.log.info('BoldBle.waitForBluetooth()');
+
     if (noble.state === 'poweredOn') {
       return;
     }
@@ -246,6 +270,8 @@ export class BoldBle {
       };
 
       const onAbort = () => {
+        this.log.info('BoldBle.waitForBluetooth -> onAbort');
+
         cleanup();
         reject(new Error('Timed out while waiting for Bluetooth to turn on'));
       };
@@ -263,44 +289,52 @@ export class BoldBle {
     deviceIds?: number[],
     timeout = DEFAULT_DISCOVER_TIMEOUT
   ): Promise<Map<number, Peripheral | null>> {
+    this.log.info(`BoldBle.discoverBoldPeripherals(${deviceIds}, ${timeout})`);
+
     const peripherals = new Map<number, Peripheral | null>(deviceIds && deviceIds.map(deviceId => [deviceId, null]));
     if (deviceIds && deviceIds.length === 0) {
       return peripherals;
     }
 
-    return runWithTimeout(timeout, async signal => {
-      await this.waitForBluetooth(signal);
-      return new Promise(resolve => {
-        const done = () => {
-          noble.stopScanning();
-          noble.removeListener('discover', onDiscover);
-          resolve(peripherals);
-        };
+    return runWithTimeout(
+      timeout,
+      async signal => {
+        await this.waitForBluetooth(signal);
+        return new Promise(resolve => {
+          const done = () => {
+            noble.stopScanning();
+            noble.removeListener('discover', onDiscover);
+            resolve(peripherals);
+          };
 
-        const onDiscover = (peripheral: Peripheral) => {
-          try {
-            const deviceInfo = this.getDeviceInfo(peripheral);
-            peripherals.set(deviceInfo.deviceId, peripheral);
-            if (deviceIds && !deviceIds.some(deviceId => !peripherals.get(deviceId))) {
-              done();
+          const onDiscover = (peripheral: Peripheral) => {
+            try {
+              const deviceInfo = this.getDeviceInfo(peripheral);
+              peripherals.set(deviceInfo.deviceId, peripheral);
+              if (deviceIds && !deviceIds.some(deviceId => !peripherals.get(deviceId))) {
+                done();
+              }
+            } catch (error: unknown) {
+              // Ignore Bold peripheral with invalid manufacturer data.
             }
-          } catch (error: unknown) {
-            // Ignore Bold peripheral with invalid manufacturer data.
+          };
+
+          if (signal.aborted) {
+            done();
           }
-        };
+          signal.addEventListener('abort', done);
 
-        if (signal.aborted) {
-          done();
-        }
-        signal.addEventListener('abort', done);
-
-        noble.on('discover', onDiscover);
-        noble.startScanning([SESAM_SERVICE_UUID], false);
-      });
-    });
+          noble.on('discover', onDiscover);
+          noble.startScanning([SESAM_SERVICE_UUID], false);
+        });
+      },
+      this.log
+    );
   }
 
   public getDeviceInfo(peripheral: Peripheral): BoldBleDeviceInfo {
+    this.log.info('BoldBle.getDeviceInfo()');
+
     const data = peripheral.advertisement.manufacturerData;
 
     if (data.length !== 14) {
@@ -331,19 +365,25 @@ export class BoldBle {
     timeout: number,
     func: (connection: BoldBleConnection) => T
   ) {
-    return runWithTimeout(timeout, async signal => {
-      const connection = await BoldBleConnection.create(peripheral, signal);
-      await connection.performHandshake(handshake);
+    this.log.info('BoldBle.withEncryptedConnection()');
 
-      try {
-        if (signal.aborted) {
-          throw new Error('Timed out after handshake');
+    return runWithTimeout(
+      timeout,
+      async signal => {
+        const connection = await BoldBleConnection.create(peripheral, signal, this.log);
+        await connection.performHandshake(handshake);
+
+        try {
+          if (signal.aborted) {
+            throw new Error('Timed out after handshake');
+          }
+          return await func(connection);
+        } finally {
+          await connection.disconnect();
         }
-        return await func(connection);
-      } finally {
-        await connection.disconnect();
-      }
-    });
+      },
+      this.log
+    );
   }
 
   public async activateLock(
@@ -352,6 +392,8 @@ export class BoldBle {
     activateCommand: BoldApiCommand,
     timeout: number = DEFAULT_ACTIVATE_TIMEOUT
   ): Promise<number> {
+    this.log.info('BoldBle.activateLock()');
+
     return this.withEncryptedConnection(peripheral, handshake, timeout, async connection => {
       const commandPayload = Buffer.from(activateCommand.payload, 'base64');
       const commandAck = await connection.call(

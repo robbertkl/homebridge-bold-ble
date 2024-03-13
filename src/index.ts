@@ -75,7 +75,7 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
 
         const { BoldApi, BoldBle } = await import('./bold');
         this.api = new BoldApi(config as BoldBlePlatformConfig as BoldApiAuthentication);
-        this.ble = new BoldBle();
+        this.ble = new BoldBle(log);
 
         this.api.on('refresh', this.onApiTokenRefresh.bind(this));
 
@@ -180,6 +180,8 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
   }
 
   private async setTargetLockState(deviceId: number, value: CharacteristicValue) {
+    this.log.info(`setTargetLockState(${deviceId}, ${value})`);
+
     const lock = this.locks.get(deviceId);
     if (!lock) {
       this.log.warn(`SetTargetLockState requested for device ${deviceId}, but no such accessory`);
@@ -207,10 +209,11 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
     }
 
     if (lock.state === 'activating' || lock.state === 'activated') {
-      this.log.warn(`Skipping lock activation for device ${deviceId}, it's already activated or activating`);
+      this.log.warn(`Skipping lock activation for device ${deviceId}, it's already ${lock.state}`);
       throw new this.homebridge.hap.HapStatusError(HAPStatus.NOT_ALLOWED_IN_CURRENT_STATE);
     }
 
+    this.log.info('lock.state = activating');
     lock.state = 'activating';
     targetState?.updateValue(this.Characteristic.LockTargetState.UNSECURED);
 
@@ -221,6 +224,7 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
 
     let activationTime: number;
     try {
+      this.log.info('Activating lock...');
       activationTime = await this.ble.activateLock(lock.peripheral, lock.handshake, lock.activateCommand);
       this.log.info(`Activated lock for device ${deviceId}, will auto-deactivate after ${activationTime}s`);
     } catch (error: unknown) {
@@ -239,10 +243,12 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
       throw new this.homebridge.hap.HapStatusError(hapStatus);
     }
 
+    this.log.info('lock.state = activated');
     lock.state = 'activated';
     currentState?.updateValue(this.Characteristic.LockTargetState.UNSECURED);
 
     setTimeout(() => {
+      this.log.info('lock.state = deactivated');
       lock.state = 'deactivated';
       currentState?.updateValue(this.Characteristic.LockTargetState.SECURED);
       targetState?.updateValue(this.Characteristic.LockTargetState.SECURED);
