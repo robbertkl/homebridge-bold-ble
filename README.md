@@ -1,3 +1,28 @@
+# DEBUG BRANCH INFO
+
+To install, either open up the terminal from the Homebridge UI or start an Homebridge shell from ssh (`sudo hb-shell`). You will enter in the Homebridge directory (e.g. `/var/lib/homebridge`). From there run the following:
+
+```sh
+cd node_modules
+rm -Rf homebridge-bold-ble
+git clone -b debug https://github.com/robbertkl/homebridge-bold-ble.git
+cd homebridge-bold-ble
+npm install
+npm run build
+hb-service restart
+```
+
+To pull in updates to the debug branch at a later time, again open a Homebridge shell and run:
+
+```sh
+cd node_modules/homebridge-bold-ble
+git pull
+npm run build
+hb-service restart
+```
+
+---
+
 <p align="center">
   <img src="homebridge-bold-ble.png" height="200">  
 </p>
