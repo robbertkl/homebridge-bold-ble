@@ -1,7 +1,3 @@
-# Ignore compiled code
-dist
-homebridge-ui/public
-
 # ------------- Defaults ------------- #
 
 # Logs
@@ -87,7 +83,6 @@ web_modules/
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 
 # Gatsby files
 .cache/
