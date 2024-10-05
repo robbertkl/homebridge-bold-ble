@@ -1,6 +1,9 @@
-# Ignore compiled code
+# Build products
 dist
 homebridge-ui/public
+
+# macOS folder attributes
+.DS_Store
 
 # ------------- Defaults ------------- #
 
