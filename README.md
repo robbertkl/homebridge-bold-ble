@@ -8,7 +8,6 @@ rm -Rf homebridge-bold-ble
 git clone -b debug https://github.com/robbertkl/homebridge-bold-ble.git
 cd homebridge-bold-ble
 npm install
-npm run build
 hb-service restart
 ```
 
@@ -17,7 +16,6 @@ To pull in updates to the debug branch at a later time, again open a Homebridge 
 ```sh
 cd node_modules/homebridge-bold-ble
 git pull
-npm run build
 hb-service restart
 ```
 
