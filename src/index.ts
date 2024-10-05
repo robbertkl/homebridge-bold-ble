@@ -126,15 +126,15 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
       informationService = accessory.addService(this.homebridge.hap.Service.AccessoryInformation);
     }
 
-    informationService.getCharacteristic(this.Characteristic.Name).onGet(() => device.name || 'Bold Lock');
+    informationService.getCharacteristic(this.Characteristic.Name).onGet(() => device.name || 'Lock');
 
-    informationService.getCharacteristic(this.Characteristic.Manufacturer).onGet(() => device.model.make || 'Bold');
+    informationService.getCharacteristic(this.Characteristic.Manufacturer).onGet(() => 'Bold');
 
-    informationService.getCharacteristic(this.Characteristic.Model).onGet(() => device.model.model || 'Lock');
+    informationService.getCharacteristic(this.Characteristic.Model).onGet(() => device.model.name || 'Smart Lock');
 
     informationService
       .getCharacteristic(this.Characteristic.SerialNumber)
-      .onGet(() => device.serial ?? `${device.type.id}-${device.model.id}-${device.owner.organizationId}-${device.id}`);
+      .onGet(() => `${device.model.type.id}-${device.model.id}-${device.owner.organizationId}-${device.id}`);
 
     informationService
       .getCharacteristic(this.Characteristic.FirmwareRevision)
@@ -250,16 +250,16 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
   }
 
   private async fetchCompatibleDevices(): Promise<Map<number, BoldApiDevice>> {
-    const potentialDevices = (await this.api?.getEffectiveDevicePermissions()) ?? [];
+    const effectiveDevicePermissions = (await this.api?.getEffectiveDevicePermissions()) ?? [];
     const devices = new Map<number, BoldApiDevice>();
-    for (const device of potentialDevices) {
+    for (const { device, permissions } of effectiveDevicePermissions) {
       if (!device.id) {
         this.log.warn('Skipping device without device ID');
       } else if (!device.name) {
         this.log.warn(`Skipping device ${device.id}: missing device name`);
-      } else if (device.type.id !== BOLD_SMART_CYLINDER_DEVICE_TYPE) {
+      } else if (device.model.type.id !== BOLD_SMART_CYLINDER_DEVICE_TYPE) {
         this.log.warn(`Skipping device ${device.id}: not a Bold Smart Cylinder`);
-      } else if (!device.permissions.some(permission => permission.devicePermission === 'UseDevice')) {
+      } else if (!permissions.remoteActivate) {
         this.log.warn(`Skipping device ${device.id}: no permission to use`);
       } else {
         devices.set(device.id, device);
@@ -429,6 +429,7 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
   }
 
   private async updateHandshakes(forceUpdate = false) {
+    // TODO: fetch all handshakes in a single API call, which getHandshakes() now supports.
     for (const [deviceId, lock] of this.locks) {
       if (
         forceUpdate ||
@@ -436,7 +437,7 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
         new Date(lock.handshake.expiration).getTime() - new Date().getTime() < HANDSHAKE_UPDATE_MARGIN
       ) {
         try {
-          const handshakes = (await this.api?.getHandshakes(deviceId)) ?? [];
+          const handshakes = (await this.api?.getHandshakes([deviceId])) ?? [];
           const handshake = handshakes.shift();
           if (handshake) {
             this.log.debug(`Updated handshake for device ${deviceId}`);
@@ -452,6 +453,7 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
   }
 
   private async updateCommands(forceUpdate = false) {
+    // TODO: fetch all activate commands in a single API call, which getCommands() now supports.
     for (const [deviceId, lock] of this.locks) {
       if (
         forceUpdate ||
@@ -459,7 +461,7 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
         new Date(lock.activateCommand.expiration).getTime() - new Date().getTime() < COMMAND_UPDATE_MARGIN
       ) {
         try {
-          const commands = (await this.api?.getActivateCommands(deviceId)) ?? [];
+          const commands = (await this.api?.getCommands([deviceId], ['Activate'])) ?? [];
           const command = commands.shift();
           if (command) {
             this.log.debug(`Updated activate-command for device ${deviceId}`);

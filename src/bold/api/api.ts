@@ -6,7 +6,8 @@ import type {
   BoldApiAuthentication,
   BoldApiCommand,
   BoldApiCommandsResponse,
-  BoldApiDevice,
+  BoldApiCommandType,
+  BoldApiEffectiveDevicePermission,
   BoldApiEffectiveDevicePermissionsResponse,
   BoldApiErrorResponse,
   BoldApiHandshake,
@@ -224,21 +225,22 @@ export class BoldApi extends EventEmitter {
     }
   }
 
-  public async getEffectiveDevicePermissions(): Promise<BoldApiDevice[]> {
-    return await this.call<BoldApiEffectiveDevicePermissionsResponse>('GET', 'v1/effective-device-permissions');
+  // See API docs at: https://apidoc.boldsmartlock.com/
+
+  public async getEffectiveDevicePermissions(): Promise<BoldApiEffectiveDevicePermission[]> {
+    return await this.call<BoldApiEffectiveDevicePermissionsResponse>('GET', 'v2/effective-device-permissions');
   }
 
-  public async getHandshakes(deviceId: number): Promise<BoldApiHandshake[]> {
-    return await this.call<BoldApiHandshakesResponse>(
-      'GET',
-      `v1/controller/v0/handshakes?deviceId=${encodeURIComponent(deviceId)}`
-    );
+  public async getHandshakes(deviceIds: number[]): Promise<BoldApiHandshake[]> {
+    const query = new URLSearchParams();
+    query.set('deviceIds', deviceIds.join(','));
+    return await this.call<BoldApiHandshakesResponse>('GET', `v2/controller/handshakes?${query}`);
   }
 
-  public async getActivateCommands(deviceId: number): Promise<BoldApiCommand[]> {
-    return await this.call<BoldApiCommandsResponse>(
-      'GET',
-      `v1/controller/v0/commands/activate-device?deviceId=${encodeURIComponent(deviceId)}`
-    );
+  public async getCommands(deviceIds: number[], commandTypes: BoldApiCommandType[]): Promise<BoldApiCommand[]> {
+    const query = new URLSearchParams();
+    query.set('deviceIds', deviceIds.join(','));
+    query.set('commandTypes', commandTypes.join(','));
+    return await this.call<BoldApiCommandsResponse>('GET', `v2/controller/commands?${query}`);
   }
 }
