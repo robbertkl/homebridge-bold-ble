@@ -1,6 +1,6 @@
 {
   "name": "homebridge-bold-ble",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "displayName": "Homebridge Bold BLE",
   "description": "Homebridge plugin for Bold Smart Lock",
   "license": "MIT",
