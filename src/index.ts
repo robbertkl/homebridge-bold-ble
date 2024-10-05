@@ -132,6 +132,11 @@ class BoldBlePlatform implements DynamicPlatformPlugin {
 
     informationService.getCharacteristic(this.Characteristic.Model).onGet(() => device.model.name || 'Smart Lock');
 
+    // Backwards compatibility with contexts stored in old format.
+    if ('type' in device) {
+      device.model.type = device['type'] as typeof device.model.type;
+    }
+
     informationService
       .getCharacteristic(this.Characteristic.SerialNumber)
       .onGet(() => `${device.model.type.id}-${device.model.id}-${device.owner.organizationId}-${device.id}`);
